@@ -29,9 +29,14 @@ const Navigation = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-              <Package className="w-8 h-8 text-blue-600" />
-              <span className="text-xl font-bold text-gray-900">PantauPangan.ID</span>
-            </Link>
+  <img 
+    src="/assets/logo3.png" 
+    alt="Logo" 
+    className="h-10 w-auto object-contain" 
+  />
+  
+</Link>
+
           </div>
 
           {/* Desktop Menu */}
@@ -65,16 +70,6 @@ const Navigation = () => {
                 >
                   <BarChart3 className="w-4 h-4 mr-1" />
                   Prices
-                </Link>
-
-                <Link 
-                  to="/comparison" 
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/comparison') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 mr-1" />
-                  Perbandingan
                 </Link>
 
                 {/* Market Price Dropdown */}
@@ -203,16 +198,7 @@ const Navigation = () => {
                   Prices
                 </Link>
 
-                <Link 
-                  to="/comparison" 
-                  onClick={closeMenus}
-                  className={`flex items-center px-3 py-2 rounded-md transition-colors ${
-                    isActive('/comparison') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  <TrendingUp className="w-4 h-4 mr-2" />
-                  Perbandingan
-                </Link>
+                
 
                 {/* Mobile Market Price Menu */}
                 <div className="ml-4 space-y-1">

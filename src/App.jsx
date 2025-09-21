@@ -12,7 +12,6 @@ import RegisterPage from './pages/RegisterPage';
 import DashboardPage from './pages/DashboardPage';
 import PricesPage from './pages/PricesPage';
 import ProfilePage from './pages/ProfilePage';
-import PriceComparisonPage from './pages/PriceComparisonPage';
 
 // New Market Price Pages
 import ManualPriceInputPage from './pages/ManualPriceInputPage';
@@ -55,7 +54,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="prices" element={<PricesPage />} />
-            <Route path="comparison" element={<PriceComparisonPage />} />
+            
             <Route path="profile" element={<ProfilePage />} />
             
             {/* Market Price Routes */}

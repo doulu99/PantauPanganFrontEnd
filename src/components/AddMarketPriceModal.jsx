@@ -1,21 +1,21 @@
+// components/AddMarketPriceModal.jsx - ENHANCED WITH COMMODITY CREATION
 import React, { useState, useEffect } from 'react';
-import { X, Store, MapPin, Calendar, Upload, Plus, Package } from 'lucide-react';
-import { marketPriceAPI, priceAPI } from '../services/api';
+import { X, Plus, Loader2, Package, Edit3 } from 'lucide-react';
+import { marketPriceAPI, customCommodityAPI } from '../services/api';
 import { formatCurrency } from '../utils/helpers';
 import toast from 'react-hot-toast';
+import ImageUpload from './ImageUpload';
 
 const AddMarketPriceModal = ({ isOpen, onClose, onSuccess }) => {
+  const [loading, setLoading] = useState(false);
   const [commodities, setCommodities] = useState([]);
-  const [showCustomCommodity, setShowCustomCommodity] = useState(false);
-  const [customCommodityData, setCustomCommodityData] = useState({
-    name: '',
-    unit: '',
-    category: '',
-    description: ''
-  });
+  const [selectedImages, setSelectedImages] = useState([]);
+  const [showCreateCommodity, setShowCreateCommodity] = useState(false);
+  const [creatingCommodity, setCreatingCommodity] = useState(false);
+  
   const [formData, setFormData] = useState({
     commodity_id: '',
-    commodity_type: 'existing', // 'existing' or 'custom'
+    commodity_source: 'custom',
     market_name: '',
     market_location: '',
     price: '',
@@ -23,9 +23,39 @@ const AddMarketPriceModal = ({ isOpen, onClose, onSuccess }) => {
     quality_grade: 'standard',
     notes: ''
   });
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({});
 
+  // New commodity form data
+  const [newCommodity, setNewCommodity] = useState({
+    name: '',
+    unit: '',
+    category: 'lainnya',
+    description: ''
+  });
+
+  const [errors, setErrors] = useState({});
+  const [commodityErrors, setCommodityErrors] = useState({});
+
+  // Categories for new commodity
+  const categories = [
+    { value: 'beras', label: 'Beras' },
+    { value: 'sayuran', label: 'Sayuran' },
+    { value: 'buah', label: 'Buah' },
+    { value: 'daging', label: 'Daging' },
+    { value: 'ikan', label: 'Ikan' },
+    { value: 'bumbu', label: 'Bumbu' },
+    { value: 'telur', label: 'Telur' },
+    { value: 'kacang', label: 'Kacang-kacangan' },
+    { value: 'minyak', label: 'Minyak' },
+    { value: 'lainnya', label: 'Lainnya' }
+  ];
+
+  // Common units
+  const commonUnits = [
+    'kg', 'gram', 'liter', 'ml', 'buah', 'biji', 'lembar', 'batang', 
+    'ikat', 'bungkus', 'sachet', 'botol', 'kaleng', 'dus'
+  ];
+
+  // Fetch commodities when modal opens
   useEffect(() => {
     if (isOpen) {
       fetchCommodities();
@@ -35,51 +65,25 @@ const AddMarketPriceModal = ({ isOpen, onClose, onSuccess }) => {
 
   const fetchCommodities = async () => {
     try {
-      // Ambil komoditas dari API nasional
-      const nationalResponse = await priceAPI.getCurrentPrices({ limit: 100 });
-      
-      // Ambil komoditas custom yang sudah pernah dibuat
-      const customResponse = await marketPriceAPI.getCustomCommodities();
-      
-      const allCommodities = [];
-      const seen = new Set();
-      
-      // Tambahkan komoditas nasional
-      if (nationalResponse.data.success) {
-        nationalResponse.data.data.forEach(item => {
-          if (item.commodity && !seen.has(item.commodity.id)) {
-            seen.add(item.commodity.id);
-            allCommodities.push({
-              ...item.commodity,
-              source: 'national'
-            });
-          }
-        });
-      }
-      
-      // Tambahkan komoditas custom
+      const customResponse = await customCommodityAPI.getCustomCommodities();
       if (customResponse.data.success) {
-        customResponse.data.data.forEach(commodity => {
-          if (!seen.has(commodity.id)) {
-            seen.add(commodity.id);
-            allCommodities.push({
-              ...commodity,
-              source: 'custom'
-            });
-          }
-        });
+        const customCommodities = customResponse.data.data.map(commodity => ({
+          ...commodity,
+          source: 'custom',
+          display_name: `${commodity.name} (${commodity.unit}) - ${commodity.category}`
+        }));
+        setCommodities(customCommodities);
       }
-      
-      setCommodities(allCommodities);
     } catch (error) {
       console.error('Error fetching commodities:', error);
+      toast.error('Gagal memuat data komoditas');
     }
   };
 
   const resetForm = () => {
     setFormData({
       commodity_id: '',
-      commodity_type: 'existing',
+      commodity_source: 'custom',
       market_name: '',
       market_location: '',
       price: '',
@@ -87,52 +91,180 @@ const AddMarketPriceModal = ({ isOpen, onClose, onSuccess }) => {
       quality_grade: 'standard',
       notes: ''
     });
-    setCustomCommodityData({
+    setNewCommodity({
       name: '',
       unit: '',
-      category: '',
+      category: 'lainnya',
       description: ''
     });
-    setShowCustomCommodity(false);
+    setSelectedImages([]);
     setErrors({});
+    setCommodityErrors({});
+    setShowCreateCommodity(false);
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const handleCommodityInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewCommodity(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    if (commodityErrors[name]) {
+      setCommodityErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const handleCommodityChange = (e) => {
+    const commodityId = e.target.value;
+    
+    if (commodityId === 'create_new') {
+      setShowCreateCommodity(true);
+      setFormData(prev => ({
+        ...prev,
+        commodity_id: ''
+      }));
+      return;
+    }
+    
+    const selectedCommodity = commodities.find(c => c.id === parseInt(commodityId));
+    
+    setFormData(prev => ({
+      ...prev,
+      commodity_id: commodityId,
+      commodity_source: selectedCommodity ? selectedCommodity.source : 'custom'
+    }));
+    
+    if (errors.commodity_id) {
+      setErrors(prev => ({
+        ...prev,
+        commodity_id: ''
+      }));
+    }
+  };
+
+  const validateCommodityForm = () => {
+    const newErrors = {};
+
+    if (!newCommodity.name.trim()) {
+      newErrors.name = 'Nama komoditas harus diisi';
+    }
+
+    if (!newCommodity.unit.trim()) {
+      newErrors.unit = 'Satuan harus diisi';
+    }
+
+    if (!newCommodity.category) {
+      newErrors.category = 'Kategori harus dipilih';
+    }
+
+    setCommodityErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleCreateCommodity = async () => {
+    if (!validateCommodityForm()) {
+      return;
+    }
+
+    setCreatingCommodity(true);
+
+    try {
+      const response = await customCommodityAPI.createCustomCommodity(newCommodity);
+
+      if (response.data.success) {
+        toast.success('Komoditas baru berhasil dibuat');
+        
+        // Add to commodities list
+        const createdCommodity = {
+          ...response.data.data,
+          source: 'custom',
+          display_name: `${response.data.data.name} (${response.data.data.unit}) - ${response.data.data.category}`
+        };
+        
+        setCommodities(prev => [createdCommodity, ...prev]);
+        
+        // Select the new commodity
+        setFormData(prev => ({
+          ...prev,
+          commodity_id: createdCommodity.id.toString(),
+          commodity_source: 'custom'
+        }));
+        
+        // Close create form
+        setShowCreateCommodity(false);
+        setNewCommodity({
+          name: '',
+          unit: '',
+          category: 'lainnya',
+          description: ''
+        });
+        setCommodityErrors({});
+        
+      } else {
+        throw new Error(response.data.message || 'Gagal membuat komoditas');
+      }
+    } catch (error) {
+      console.error('Error creating commodity:', error);
+      
+      let errorMessage = 'Gagal membuat komoditas baru';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        const validationErrors = {};
+        error.response.data.errors.forEach(err => {
+          validationErrors[err.field] = err.message;
+        });
+        setCommodityErrors(validationErrors);
+        errorMessage = 'Terdapat kesalahan validasi';
+      }
+      
+      toast.error(errorMessage);
+    } finally {
+      setCreatingCommodity(false);
+    }
+  };
+
+  const handleImagesChange = (images) => {
+    setSelectedImages(images);
   };
 
   const validateForm = () => {
     const newErrors = {};
 
-    // Validasi commodity
-    if (formData.commodity_type === 'existing') {
-      if (!formData.commodity_id) {
-        newErrors.commodity_id = 'Pilih komoditas atau buat komoditas baru';
-      }
-    } else {
-      if (!customCommodityData.name.trim()) {
-        newErrors.custom_name = 'Nama komoditas wajib diisi';
-      }
-      if (!customCommodityData.unit.trim()) {
-        newErrors.custom_unit = 'Satuan wajib diisi';
-      }
-      if (!customCommodityData.category.trim()) {
-        newErrors.custom_category = 'Kategori wajib diisi';
-      }
+    if (!formData.commodity_id) {
+      newErrors.commodity_id = 'Komoditas harus dipilih';
     }
 
     if (!formData.market_name.trim()) {
-      newErrors.market_name = 'Nama pasar wajib diisi';
+      newErrors.market_name = 'Nama pasar harus diisi';
     }
-    
+
     if (!formData.price || parseFloat(formData.price) <= 0) {
-      newErrors.price = 'Harga harus lebih dari 0';
+      newErrors.price = 'Harga harus diisi dan lebih dari 0';
     }
-    
+
     if (!formData.date) {
-      newErrors.date = 'Tanggal wajib diisi';
-    } else {
-      const selectedDate = new Date(formData.date);
-      const today = new Date();
-      if (selectedDate > today) {
-        newErrors.date = 'Tanggal tidak boleh lebih dari hari ini';
-      }
+      newErrors.date = 'Tanggal harus diisi';
     }
 
     setErrors(newErrors);
@@ -147,417 +279,446 @@ const AddMarketPriceModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     setLoading(true);
+
     try {
-      let commodityId = formData.commodity_id;
-
-      // Jika komoditas baru, buat dulu komoditasnya
-      if (formData.commodity_type === 'custom') {
-        const commodityResponse = await marketPriceAPI.createCustomCommodity(customCommodityData);
-        if (commodityResponse.data.success) {
-          commodityId = commodityResponse.data.data.id;
-          toast.success('Komoditas baru berhasil dibuat!');
-        } else {
-          throw new Error('Gagal membuat komoditas baru');
+      const submitData = new FormData();
+      
+      Object.keys(formData).forEach(key => {
+        if (formData[key] !== '') {
+          submitData.append(key, formData[key]);
         }
+      });
+
+      selectedImages.forEach((image, index) => {
+        submitData.append('images', image);
+      });
+
+      const response = await marketPriceAPI.addMarketPrice(submitData);
+
+      if (response.data.success) {
+        toast.success('Data harga pasar berhasil ditambahkan');
+        onSuccess();
+      } else {
+        throw new Error(response.data.message || 'Gagal menambahkan data');
       }
-
-      // Buat data harga pasar
-      const priceData = {
-        ...formData,
-        commodity_id: commodityId,
-        price: parseFloat(formData.price)
-      };
-
-      await marketPriceAPI.addMarketPrice(priceData);
-      toast.success('Harga pasar berhasil ditambahkan!');
-      onSuccess();
-      onClose();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Gagal menambah harga pasar');
-      console.error(error);
+      console.error('Error adding market price:', error);
+      
+      let errorMessage = 'Gagal menambahkan data harga pasar';
+      
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.errors) {
+        const validationErrors = {};
+        error.response.data.errors.forEach(err => {
+          validationErrors[err.field] = err.message;
+        });
+        setErrors(validationErrors);
+        errorMessage = 'Terdapat kesalahan validasi pada form';
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleInputChange = (field, value) => {
-    if (field.startsWith('custom_')) {
-      const customField = field.replace('custom_', '');
-      setCustomCommodityData(prev => ({
-        ...prev,
-        [customField]: value
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [field]: value
-      }));
-    }
-    
-    // Clear error when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: ''
-      }));
-    }
-  };
-
-  const toggleCommodityType = () => {
-    const newType = formData.commodity_type === 'existing' ? 'custom' : 'existing';
-    setFormData(prev => ({
-      ...prev,
-      commodity_type: newType,
-      commodity_id: ''
-    }));
-    setShowCustomCommodity(newType === 'custom');
-    
-    // Clear related errors
-    setErrors(prev => {
-      const newErrors = { ...prev };
-      delete newErrors.commodity_id;
-      delete newErrors.custom_name;
-      delete newErrors.custom_unit;
-      delete newErrors.custom_category;
-      return newErrors;
-    });
   };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-auto">
-        <div className="px-6 py-4 border-b flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold">Tambah Harga Pasar</h2>
-            <p className="text-sm text-gray-600">
-              Input data harga pasar lokal untuk perbandingan
-            </p>
-          </div>
-          <button 
-            onClick={onClose} 
-            className="p-1 hover:bg-gray-100 rounded-lg"
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b">
+          <h2 className="text-xl font-semibold text-gray-900">
+            Tambah Harga Pasar Baru
+          </h2>
+          <button
+            onClick={onClose}
             disabled={loading}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
+        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Commodity Type Selection */}
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-medium text-gray-900">Pilih Komoditas</h3>
-              <div className="flex bg-white rounded-lg p-1">
-                <button
-                  type="button"
-                  onClick={() => formData.commodity_type === 'custom' && toggleCommodityType()}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    formData.commodity_type === 'existing'
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-600 hover:text-blue-600'
-                  }`}
-                  disabled={loading}
-                >
-                  Pilih yang Ada
-                </button>
-                <button
-                  type="button"
-                  onClick={() => formData.commodity_type === 'existing' && toggleCommodityType()}
-                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
-                    formData.commodity_type === 'custom'
-                      ? 'bg-green-600 text-white'
-                      : 'text-gray-600 hover:text-green-600'
-                  }`}
-                  disabled={loading}
-                >
-                  Buat Baru
-                </button>
-              </div>
-            </div>
-
-            {formData.commodity_type === 'existing' ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="space-y-6">
+              {/* Commodity Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Komoditas <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Komoditas *
                 </label>
-                <select
-                  value={formData.commodity_id}
-                  onChange={(e) => handleInputChange('commodity_id', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    errors.commodity_id ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  disabled={loading}
-                >
-                  <option value="">Pilih Komoditas</option>
-                  <optgroup label="Komoditas Nasional">
-                    {commodities
-                      .filter(comm => comm.source === 'national')
-                      .map(comm => (
-                        <option key={`national-${comm.id}`} value={comm.id}>
-                          {comm.name} ({comm.unit}) - Nasional
+                
+                {!showCreateCommodity ? (
+                  <div className="space-y-2">
+                    <select
+                      name="commodity_id"
+                      value={formData.commodity_id}
+                      onChange={handleCommodityChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.commodity_id ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      disabled={loading}
+                    >
+                      <option value="">Pilih Komoditas</option>
+                      {commodities.map(commodity => (
+                        <option key={commodity.id} value={commodity.id}>
+                          {commodity.display_name}
                         </option>
-                      ))
-                    }
-                  </optgroup>
-                  <optgroup label="Komoditas Custom">
-                    {commodities
-                      .filter(comm => comm.source === 'custom')
-                      .map(comm => (
-                        <option key={`custom-${comm.id}`} value={comm.id}>
-                          {comm.name} ({comm.unit}) - Custom
-                        </option>
-                      ))
-                    }
-                  </optgroup>
-                </select>
+                      ))}
+                      <option value="create_new" className="bg-blue-50 text-blue-700">
+                        + Buat Komoditas Baru
+                      </option>
+                    </select>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setShowCreateCommodity(true)}
+                      className="w-full px-3 py-2 border-2 border-dashed border-blue-300 text-blue-600 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors flex items-center justify-center"
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Buat Komoditas Baru
+                    </button>
+                  </div>
+                ) : (
+                  /* Create New Commodity Form */
+                  <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-medium text-blue-900 flex items-center">
+                        <Package className="w-4 h-4 mr-2" />
+                        Buat Komoditas Baru
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => setShowCreateCommodity(false)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-sm font-medium text-blue-800 mb-1">
+                            Nama Komoditas *
+                          </label>
+                          <input
+                            type="text"
+                            name="name"
+                            value={newCommodity.name}
+                            onChange={handleCommodityInputChange}
+                            placeholder="Contoh: Tempe Mendoan"
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                              commodityErrors.name ? 'border-red-500' : 'border-blue-300'
+                            }`}
+                            disabled={creatingCommodity}
+                          />
+                          {commodityErrors.name && (
+                            <p className="mt-1 text-sm text-red-600">{commodityErrors.name}</p>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-blue-800 mb-1">
+                            Satuan *
+                          </label>
+                          <div className="relative">
+                            <input
+                              type="text"
+                              name="unit"
+                              value={newCommodity.unit}
+                              onChange={handleCommodityInputChange}
+                              placeholder="Contoh: Ikat"
+                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                                commodityErrors.unit ? 'border-red-500' : 'border-blue-300'
+                              }`}
+                              disabled={creatingCommodity}
+                              list="units-list"
+                            />
+                            <datalist id="units-list">
+                              {commonUnits.map(unit => (
+                                <option key={unit} value={unit} />
+                              ))}
+                            </datalist>
+                          </div>
+                          {commodityErrors.unit && (
+                            <p className="mt-1 text-sm text-red-600">{commodityErrors.unit}</p>
+                          )}
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800 mb-1">
+                          Kategori *
+                        </label>
+                        <select
+                          name="category"
+                          value={newCommodity.category}
+                          onChange={handleCommodityInputChange}
+                          className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            commodityErrors.category ? 'border-red-500' : 'border-blue-300'
+                          }`}
+                          disabled={creatingCommodity}
+                        >
+                          {categories.map(category => (
+                            <option key={category.value} value={category.value}>
+                              {category.label}
+                            </option>
+                          ))}
+                        </select>
+                        {commodityErrors.category && (
+                          <p className="mt-1 text-sm text-red-600">{commodityErrors.category}</p>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-blue-800 mb-1">
+                          Deskripsi
+                        </label>
+                        <input
+                          type="text"
+                          name="description"
+                          value={newCommodity.description}
+                          onChange={handleCommodityInputChange}
+                          placeholder="Contoh: 1 Ikat 4 Lembar"
+                          className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          disabled={creatingCommodity}
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleCreateCommodity}
+                        disabled={creatingCommodity}
+                        className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center"
+                      >
+                        {creatingCommodity ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Membuat...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Buat Komoditas
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
                 {errors.commodity_id && (
                   <p className="mt-1 text-sm text-red-600">{errors.commodity_id}</p>
                 )}
               </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-center text-green-600 mb-3">
-                  <Plus className="w-4 h-4 mr-2" />
-                  <span className="text-sm font-medium">Membuat Komoditas Baru</span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Nama Komoditas <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={customCommodityData.name}
-                      onChange={(e) => handleInputChange('custom_name', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                        errors.custom_name ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="Contoh: Ikan Lele Segar"
-                      disabled={loading}
-                    />
-                    {errors.custom_name && (
-                      <p className="mt-1 text-sm text-red-600">{errors.custom_name}</p>
-                    )}
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Satuan <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={customCommodityData.unit}
-                      onChange={(e) => handleInputChange('custom_unit', e.target.value)}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                        errors.custom_unit ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="Contoh: Kg, Pcs, Ikat"
-                      disabled={loading}
-                    />
-                    {errors.custom_unit && (
-                      <p className="mt-1 text-sm text-red-600">{errors.custom_unit}</p>
-                    )}
-                  </div>
-                </div>
-
+              {/* Market Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Kategori <span className="text-red-500">*</span>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Nama Pasar *
                   </label>
-                  <select
-                    value={customCommodityData.category}
-                    onChange={(e) => handleInputChange('custom_category', e.target.value)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                      errors.custom_category ? 'border-red-500' : 'border-gray-300'
+                  <input
+                    type="text"
+                    name="market_name"
+                    value={formData.market_name}
+                    onChange={handleInputChange}
+                    placeholder="Contoh: Pasar Minggu"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.market_name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     disabled={loading}
-                  >
-                    <option value="">Pilih Kategori</option>
-                    <option value="beras">Beras</option>
-                    <option value="sayuran">Sayuran</option>
-                    <option value="buah">Buah</option>
-                    <option value="daging">Daging</option>
-                    <option value="ikan">Ikan & Seafood</option>
-                    <option value="bumbu">Bumbu & Rempah</option>
-                    <option value="telur">Telur & Susu</option>
-                    <option value="kacang">Kacang-kacangan</option>
-                    <option value="minyak">Minyak & Lemak</option>
-                    <option value="lainnya">Lainnya</option>
-                  </select>
-                  {errors.custom_category && (
-                    <p className="mt-1 text-sm text-red-600">{errors.custom_category}</p>
+                  />
+                  {errors.market_name && (
+                    <p className="mt-1 text-sm text-red-600">{errors.market_name}</p>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Deskripsi (Opsional)
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Lokasi Pasar
                   </label>
                   <input
                     type="text"
-                    value={customCommodityData.description}
-                    onChange={(e) => handleInputChange('custom_description', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Deskripsi singkat komoditas..."
-                    disabled={loading}
-                  />
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column - Market Info */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Nama Pasar <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Store className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    value={formData.market_name}
-                    onChange={(e) => handleInputChange('market_name', e.target.value)}
-                    className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                      errors.market_name ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Contoh: Pasar Induk Kramat Jati"
-                    disabled={loading}
-                  />
-                </div>
-                {errors.market_name && (
-                  <p className="mt-1 text-sm text-red-600">{errors.market_name}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lokasi Pasar
-                </label>
-                <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
+                    name="market_location"
                     value={formData.market_location}
-                    onChange={(e) => handleInputChange('market_location', e.target.value)}
-                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="Contoh: Jakarta Timur"
+                    onChange={handleInputChange}
+                    placeholder="Contoh: Jakarta Selatan"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     disabled={loading}
                   />
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tingkat Kualitas
-                </label>
-                <select
-                  value={formData.quality_grade}
-                  onChange={(e) => handleInputChange('quality_grade', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  disabled={loading}
-                >
-                  <option value="premium">Premium</option>
-                  <option value="standard">Standard</option>
-                  <option value="ekonomis">Ekonomis</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Right Column - Price Info */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Harga <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">
-                    Rp
-                  </span>
-                  <input
-                    type="number"
-                    value={formData.price}
-                    onChange={(e) => handleInputChange('price', e.target.value)}
-                    className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                      errors.price ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="0"
-                    min="0"
-                    step="0.01"
-                    disabled={loading}
-                  />
+              {/* Price and Date */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Harga *
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2 text-gray-500">Rp</span>
+                    <input
+                      type="number"
+                      name="price"
+                      value={formData.price}
+                      onChange={handleInputChange}
+                      placeholder="15000"
+                      min="1"
+                      step="100"
+                      className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.price ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      disabled={loading}
+                    />
+                  </div>
+                  {errors.price && (
+                    <p className="mt-1 text-sm text-red-600">{errors.price}</p>
+                  )}
+                  {formData.price && parseFloat(formData.price) > 0 && (
+                    <p className="mt-1 text-sm text-gray-500">
+                      {formatCurrency(parseFloat(formData.price))}
+                    </p>
+                  )}
                 </div>
-                {errors.price && (
-                  <p className="mt-1 text-sm text-red-600">{errors.price}</p>
-                )}
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tanggal <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tanggal *
+                  </label>
                   <input
                     type="date"
+                    name="date"
                     value={formData.date}
-                    onChange={(e) => handleInputChange('date', e.target.value)}
-                    className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                       errors.date ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    max={new Date().toISOString().split('T')[0]}
                     disabled={loading}
                   />
+                  {errors.date && (
+                    <p className="mt-1 text-sm text-red-600">{errors.date}</p>
+                  )}
                 </div>
-                {errors.date && (
-                  <p className="mt-1 text-sm text-red-600">{errors.date}</p>
-                )}
               </div>
 
+              {/* Quality Grade */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Kualitas
+                </label>
+                <select
+                  name="quality_grade"
+                  value={formData.quality_grade}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  disabled={loading}
+                >
+                  <option value="economy">Economy (Kualitas Ekonomis)</option>
+                  <option value="standard">Standard (Kualitas Standar)</option>
+                  <option value="premium">Premium (Kualitas Premium)</option>
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Catatan
                 </label>
                 <textarea
+                  name="notes"
                   value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  rows="3"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Catatan tambahan (opsional)..."
+                  onChange={handleInputChange}
+                  placeholder="Catatan tambahan tentang harga ini..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   disabled={loading}
                 />
               </div>
             </div>
+
+            {/* Right Column - Images */}
+            <div className="space-y-6">
+              {/* Images Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Foto Bukti Harga
+                </label>
+                <ImageUpload
+                  images={selectedImages}
+                  onImagesChange={handleImagesChange}
+                  maxImages={5}
+                  maxSizePerImage={5}
+                  disabled={loading}
+                  className="mb-2"
+                />
+                <p className="text-xs text-gray-500">
+                  Upload foto untuk verifikasi harga. Foto pertama akan menjadi foto utama.
+                </p>
+              </div>
+
+              {/* Form Summary */}
+              {formData.commodity_id && formData.price && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-900 mb-3">Ringkasan Data</h4>
+                  <div className="text-sm text-blue-800 space-y-2">
+                    <p>
+                      <span className="font-medium">Komoditas:</span>{' '}
+                      {commodities.find(c => c.id === parseInt(formData.commodity_id))?.name || '-'}
+                    </p>
+                    <p>
+                      <span className="font-medium">Satuan:</span>{' '}
+                      {commodities.find(c => c.id === parseInt(formData.commodity_id))?.unit || '-'}
+                    </p>
+                    <p>
+                      <span className="font-medium">Pasar:</span>{' '}
+                      {formData.market_name || '-'}
+                      {formData.market_location && ` (${formData.market_location})`}
+                    </p>
+                    <p>
+                      <span className="font-medium">Harga:</span>{' '}
+                      {formData.price ? formatCurrency(parseFloat(formData.price)) : '-'}
+                    </p>
+                    <p>
+                      <span className="font-medium">Foto:</span>{' '}
+                      {selectedImages.length} foto
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-end space-x-3 pt-6 border-t">
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-3 pt-4 border-t">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               disabled={loading}
+              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors disabled:opacity-50"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={loading}
+              disabled={loading || !formData.commodity_id}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center"
             >
               {loading ? (
                 <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {formData.commodity_type === 'custom' ? 'Membuat...' : 'Menyimpan...'}
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Menyimpan...
                 </>
               ) : (
                 <>
-                  <Upload className="w-4 h-4 mr-2" />
-                  Simpan Data
+                  <Plus className="w-4 h-4 mr-2" />
+                  Tambah Harga
                 </>
               )}
             </button>
