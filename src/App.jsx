@@ -1,3 +1,4 @@
+// src/App.jsx - Fixed version (no double router)
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
@@ -13,9 +14,8 @@ import DashboardPage from './pages/DashboardPage';
 import PricesPage from './pages/PricesPage';
 import ProfilePage from './pages/ProfilePage';
 
-// New Market Price Pages
-import ManualPriceInputPage from './pages/ManualPriceInputPage';
-import MarketPriceAnalyticsPage from './pages/MarketPriceAnalyticsPage';
+// Enhanced Market Price Page
+import EnhancedMarketPriceInputPage from './pages/EnhancedMarketPriceInputPage';
 
 function App() {
   return (
@@ -54,13 +54,10 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route path="dashboard" element={<DashboardPage />} />
             <Route path="prices" element={<PricesPage />} />
-            
             <Route path="profile" element={<ProfilePage />} />
             
-            {/* Market Price Routes */}
-            <Route path="market-prices" element={<ManualPriceInputPage />} />
-            <Route path="market-prices/input" element={<ManualPriceInputPage />} />
-            <Route path="market-prices/analytics" element={<MarketPriceAnalyticsPage />} />
+            {/* Enhanced Market Price Route */}
+            <Route path="market-prices" element={<EnhancedMarketPriceInputPage />} />
           </Route>
         </Route>
         

@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 
 const Navigation = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [marketPriceMenuOpen, setMarketPriceMenuOpen] = useState(false);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -16,11 +15,9 @@ const Navigation = () => {
   };
 
   const isActive = (path) => location.pathname === path;
-  const isMarketPriceActive = () => location.pathname.startsWith('/market-prices');
 
   const closeMenus = () => {
     setMobileMenuOpen(false);
-    setMarketPriceMenuOpen(false);
   };
 
   return (
@@ -29,14 +26,12 @@ const Navigation = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/" className="flex items-center space-x-2">
-  <img 
-    src="/assets/logo3.png" 
-    alt="Logo" 
-    className="h-10 w-auto object-contain" 
-  />
-  
-</Link>
-
+              <img 
+                src="/assets/logo3.png" 
+                alt="Logo" 
+                className="h-10 w-auto object-contain" 
+              />
+            </Link>
           </div>
 
           {/* Desktop Menu */}
@@ -68,48 +63,19 @@ const Navigation = () => {
                     isActive('/prices') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
                   }`}
                 >
-                  <BarChart3 className="w-4 h-4 mr-1" />
-                  Prices
+                  <TrendingUp className="w-4 h-4 mr-1" />
+                  Harga Nasional
                 </Link>
 
-                {/* Market Price Dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => setMarketPriceMenuOpen(!marketPriceMenuOpen)}
-                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                      isMarketPriceActive() ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <Store className="w-4 h-4 mr-1" />
-                    Input Manual
-                    <ChevronDown className={`w-4 h-4 ml-1 transform transition-transform ${marketPriceMenuOpen ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  {marketPriceMenuOpen && (
-                    <div className="absolute left-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50 border">
-                      <Link
-                        to="/market-prices"
-                        onClick={closeMenus}
-                        className={`flex items-center px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                          isActive('/market-prices') ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
-                        }`}
-                      >
-                        <PlusCircle className="w-4 h-4 mr-2" />
-                        Input Data
-                      </Link>
-                      <Link
-                        to="/market-prices/analytics"
-                        onClick={closeMenus}
-                        className={`flex items-center px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
-                          isActive('/market-prices/analytics') ? 'text-blue-600 bg-blue-50' : 'text-gray-700'
-                        }`}
-                      >
-                        <BarChart2 className="w-4 h-4 mr-2" />
-                        Analytics
-                      </Link>
-                    </div>
-                  )}
-                </div>
+                <Link 
+                  to="/market-prices" 
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                    isActive('/market-prices') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <Store className="w-4 h-4 mr-1" />
+                  Harga Pasar
+                </Link>
 
                 <Link 
                   to="/profile" 
@@ -194,39 +160,20 @@ const Navigation = () => {
                     isActive('/prices') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Prices
+                  <TrendingUp className="w-4 h-4 mr-2" />
+                  Harga Nasional
                 </Link>
 
-                
-
-                {/* Mobile Market Price Menu */}
-                <div className="ml-4 space-y-1">
-                  <div className="flex items-center px-3 py-2 text-gray-600 text-sm font-medium">
-                    <Store className="w-4 h-4 mr-2" />
-                    Input Manual
-                  </div>
-                  <Link 
-                    to="/market-prices" 
-                    onClick={closeMenus}
-                    className={`flex items-center px-6 py-2 rounded-md transition-colors ${
-                      isActive('/market-prices') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <PlusCircle className="w-4 h-4 mr-2" />
-                    Input Data
-                  </Link>
-                  <Link 
-                    to="/market-prices/analytics" 
-                    onClick={closeMenus}
-                    className={`flex items-center px-6 py-2 rounded-md transition-colors ${
-                      isActive('/market-prices/analytics') ? 'text-blue-600 bg-blue-50' : 'text-gray-600 hover:bg-gray-50'
-                    }`}
-                  >
-                    <BarChart2 className="w-4 h-4 mr-2" />
-                    Analytics
-                  </Link>
-                </div>
+                <Link 
+                  to="/market-prices" 
+                  onClick={closeMenus}
+                  className={`flex items-center px-3 py-2 rounded-md transition-colors ${
+                    isActive('/market-prices') ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Store className="w-4 h-4 mr-2" />
+                  Harga Pasar
+                </Link>
 
                 <Link 
                   to="/profile" 
@@ -270,14 +217,6 @@ const Navigation = () => {
             )}
           </div>
         </div>
-      )}
-
-      {/* Overlay untuk dropdown */}
-      {marketPriceMenuOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setMarketPriceMenuOpen(false)}
-        />
       )}
     </nav>
   );
