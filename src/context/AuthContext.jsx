@@ -1,7 +1,8 @@
+// src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from "react";
 import axios from "axios";
+import config from "../config/config.js";
 
-const API_BASE = "http://localhost:5000"; // ganti sesuai alamat backend
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
@@ -29,7 +30,7 @@ export const AuthProvider = ({ children }) => {
   // ✅ Tambahkan fungsi register
   const register = async (formData) => {
     try {
-      const res = await axios.post(`${API_BASE}/api/auth/register`, formData);
+      const res = await axios.post(`${config.API_URL}/auth/register`, formData);
       return { success: true, data: res.data };
     } catch (err) {
       console.error("Register error:", err.response?.data || err.message);

@@ -1,12 +1,12 @@
 // src/components/MarketPriceList.jsx
 import React, { useEffect, useState } from "react";
-import { Edit, Trash2, Eye, Search, Filter } from "lucide-react";
-
-const API_BASE = "http://localhost:5000";
+import { Edit, Trash2, Search, Filter, MapPin, Calendar, Package, DollarSign, AlertCircle, CheckCircle, RefreshCw } from "lucide-react";
+import config from "../config/config.js";
 
 const MarketPriceList = ({ onEdit, canManage, refreshTrigger }) => {
   const [prices, setPrices] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   const [filters, setFilters] = useState({
     search: "",
     market_type: "",
@@ -23,16 +23,21 @@ const MarketPriceList = ({ onEdit, canManage, refreshTrigger }) => {
 
   const fetchProvinces = async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/regions/provinces`);
+      const res = await fetch(`${config.API_URL}/regions/provinces`);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
       const data = await res.json();
-      setProvinces(data);
+      setProvinces(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching provinces:", error);
+      setProvinces([]);
     }
   };
 
   const fetchPrices = async () => {
     setLoading(true);
+    setError("");
+    
     try {
       const queryParams = new URLSearchParams({
         page: pagination.page,
@@ -40,20 +45,25 @@ const MarketPriceList = ({ onEdit, canManage, refreshTrigger }) => {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v))
       });
 
-      const res = await fetch(`${API_BASE}/public/market-prices?${queryParams}`);
+      const res = await fetch(`${config.PUBLIC_API_URL}/market-prices?${queryParams}`);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      
       const data = await res.json();
       
       if (data.success) {
-        setPrices(data.data);
+        setPrices(data.data || []);
         if (data.pagination) {
           setPagination(prev => ({
             ...prev,
             ...data.pagination
           }));
         }
+      } else {
+        setError(data.message || "Failed to fetch data");
       }
     } catch (err) {
       console.error("Fetch error:", err);
+      setError("Network error. Please check your connection.");
     } finally {
       setLoading(false);
     }
@@ -68,28 +78,44 @@ const MarketPriceList = ({ onEdit, canManage, refreshTrigger }) => {
   }, [refreshTrigger, filters, pagination.page]);
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this item?")) return;
-    
+    if (!window.confirm("Are you sure you want to delete this item?")) {
+      return;
+    }
+
     try {
-      const res = await fetch(`${API_BASE}/api/market-prices/${id}`, {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${config.API_URL}/market-prices/${id}`, {
         method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
       });
+
       const data = await res.json();
-      
       if (data.success) {
-        fetchPrices();
+        fetchPrices(); // Refresh list
+        // Show success message
+        setError("");
       } else {
-        alert(`Error: ${data.message}`);
+        setError(data.message || "Failed to delete item");
       }
-    } catch (err) {
-      console.error("Delete error:", err);
-      alert("Error deleting item");
+    } catch (error) {
+      console.error("Delete error:", error);
+      setError("Error deleting item");
     }
   };
 
   const handleFilterChange = (key, value) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
+    setFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const handleRefresh = () => {
+    fetchPrices();
   };
 
   const formatCurrency = (amount) => {
@@ -101,264 +127,332 @@ const MarketPriceList = ({ onEdit, canManage, refreshTrigger }) => {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('id-ID');
-  };
-
-  const handlePageChange = (newPage) => {
-    setPagination(prev => ({ ...prev, page: newPage }));
+    return new Date(dateString).toLocaleDateString('id-ID', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
   };
 
   return (
-    <div className="bg-white shadow-sm rounded-lg">
-      {/* Filters */}
-      <div className="p-6 border-b border-gray-200">
-        <h2 className="text-lg font-semibold mb-4 flex items-center">
-          <Filter className="w-5 h-5 mr-2" />
-          Market Price Data
-        </h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={filters.search}
-              onChange={(e) => handleFilterChange('search', e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center">
+          <div className="p-3 bg-gradient-to-r from-blue-500 to-emerald-500 rounded-2xl mr-4 shadow-lg">
+            <Package className="h-8 w-8 text-white" />
           </div>
-          
-          <select
-            value={filters.market_type}
-            onChange={(e) => handleFilterChange('market_type', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Market Types</option>
-            <option value="Pasar Tradisional">Traditional Market</option>
-            <option value="Pasar Modern">Modern Market</option>
-            <option value="Supermarket">Supermarket</option>
-            <option value="Grosir">Wholesale</option>
-          </select>
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800">Market Price List</h2>
+            <p className="text-gray-600">Manage and monitor all market prices</p>
+          </div>
+        </div>
+        <button
+          onClick={handleRefresh}
+          disabled={loading}
+          className="flex items-center px-4 py-2 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-all duration-300 shadow-sm"
+        >
+          <RefreshCw className={`h-5 w-5 mr-2 ${loading ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
 
-          <select
-            value={filters.province_id}
-            onChange={(e) => handleFilterChange('province_id', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Provinces</option>
-            {provinces.map(province => (
-              <option key={province.province_id} value={province.province_id}>
-                {province.province_name}
-              </option>
-            ))}
-          </select>
+      {/* Error Alert */}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start">
+          <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
+          <div>
+            <h4 className="font-semibold text-red-800">Error</h4>
+            <p className="text-red-700 text-sm">{error}</p>
+          </div>
+        </div>
+      )}
 
-          <select
-            value={filters.status}
-            onChange={(e) => handleFilterChange('status', e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="">All Status</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-          </select>
+      {/* Filters */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 p-6">
+        <div className="flex items-center mb-6">
+          <Filter className="h-6 w-6 text-gray-600 mr-2" />
+          <h3 className="text-xl font-bold text-gray-800">Filters & Search</h3>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Search */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Search Products</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search commodity, market..."
+                className="pl-10 w-full px-4 py-3 text-gray-800 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all duration-300"
+                value={filters.search}
+                onChange={(e) => handleFilterChange('search', e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Market Type */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Market Type</label>
+            <select
+              className="w-full px-4 py-3 text-gray-800 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all duration-300"
+              value={filters.market_type}
+              onChange={(e) => handleFilterChange('market_type', e.target.value)}
+            >
+              <option value="">All Types</option>
+              <option value="Pasar Tradisional">Traditional Market</option>
+              <option value="Pasar Modern">Modern Market</option>
+              <option value="Supermarket">Supermarket</option>
+              <option value="Grosir">Wholesale</option>
+              <option value="Online">Online</option>
+            </select>
+          </div>
+
+          {/* Province */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Province</label>
+            <select
+              className="w-full px-4 py-3 text-gray-800 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all duration-300"
+              value={filters.province_id}
+              onChange={(e) => handleFilterChange('province_id', e.target.value)}
+            >
+              <option value="">All Provinces</option>
+              {provinces.map((province) => (
+                <option key={province.id} value={province.id}>
+                  {province.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status */}
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Status</label>
+            <select
+              className="w-full px-4 py-3 text-gray-800 bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-200 transition-all duration-300"
+              value={filters.status}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
+            >
+              <option value="">All Status</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+              <option value="archived">Archived</option>
+            </select>
+          </div>
         </div>
       </div>
 
-      {/* Data Table */}
-      <div className="overflow-x-auto">
-        {loading ? (
-          <div className="flex justify-center items-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2">Loading...</span>
+      {/* Results */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-3xl shadow-xl border border-white/20 overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center">
+              <Package className="h-6 w-6 text-blue-600 mr-2" />
+              <h3 className="text-xl font-bold text-gray-800">
+                Market Prices ({pagination.total} items)
+              </h3>
+            </div>
+            
+            <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <span>Page {pagination.page} of {pagination.totalPages}</span>
+              {loading && (
+                <div className="flex items-center">
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-blue-600 border-t-transparent mr-2"></div>
+                  Loading...
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {prices.length === 0 && !loading ? (
+          <div className="text-center py-20">
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full flex items-center justify-center">
+              <Search className="h-12 w-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-700 mb-2">No Market Prices Found</h3>
+            <p className="text-gray-500 mb-4">
+              {filters.search || filters.market_type || filters.province_id || filters.status
+                ? "Try adjusting your filters to see more results"
+                : "No market prices available at the moment"}
+            </p>
           </div>
         ) : (
-          <table className="w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Price
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Market
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Grade
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Date
-                </th>
-                {canManage && (
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
+          <div className="overflow-x-auto">
+            <table className="min-w-full">
+              <thead className="bg-gradient-to-r from-blue-50 to-emerald-50">
+                <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Product
                   </th>
-                )}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {prices.map((item) => (
-                <tr key={item.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {item.product_name}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        per {item.unit}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-bold text-green-600">
-                      {formatCurrency(item.price)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{item.market_type}</div>
-                    <div className="text-sm text-gray-500">{item.market_name || '-'}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {item.province ? item.province.province_name : '-'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                      {item.grade || 'Standard'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      item.status === 'published' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {item.status === 'published' ? 'Published' : 'Draft'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(item.effective_date)}
-                  </td>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Price
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Market
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Location
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Date
+                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Status
+                  </th>
                   {canManage && (
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button 
-                          className="text-blue-600 hover:text-blue-900"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onEdit(item.id)}
-                          className="text-green-600 hover:text-green-900"
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
+                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
+                      Actions
+                    </th>
                   )}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-        
-        {!loading && prices.length === 0 && (
-          <div className="text-center py-8">
-            <p className="text-gray-500">No market price data available.</p>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-100">
+                {prices.map((price, index) => (
+                  <tr 
+                    key={price.id} 
+                    className="hover:bg-blue-50 transition-colors duration-200"
+                    style={{animationDelay: `${index * 50}ms`}}
+                  >
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        {price.image_url ? (
+                          <img
+                            src={`${config.API_BASE_URL}${price.image_url}`}
+                            alt={price.product_name}
+                            className="w-12 h-12 rounded-xl object-cover mr-4 border-2 border-gray-200"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-emerald-100 rounded-xl flex items-center justify-center mr-4">
+                            <Package className="h-6 w-6 text-blue-600" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="text-sm font-bold text-gray-900">
+                            {price.product_name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {price.unit} • {price.grade || "Standard"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="text-lg font-bold text-emerald-600">
+                        {formatCurrency(price.price)}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {price.market_name || "Unknown Market"}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {price.market_type || "Traditional"}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <MapPin className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="text-sm text-gray-700">
+                          {price.province?.province_name || "Unknown"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <Calendar className="h-4 w-4 text-gray-400 mr-1" />
+                        <span className="text-sm text-gray-700">
+                          {formatDate(price.effective_date || price.createdAt)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-3 py-1 text-xs font-bold rounded-full ${
+                        price.status === 'published' 
+                          ? 'bg-green-100 text-green-800 border border-green-200' 
+                          : price.status === 'draft'
+                          ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                          : 'bg-gray-100 text-gray-800 border border-gray-200'
+                      }`}>
+                        {price.status?.toUpperCase() || 'UNKNOWN'}
+                      </span>
+                    </td>
+                    {canManage && (
+                      <td className="px-6 py-4">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => onEdit(price)}
+                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-all duration-200"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(price.id)}
+                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-all duration-200"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
-      </div>
 
-      {/* Pagination */}
-      {pagination.totalPages > 1 && (
-        <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200">
-          <div className="flex-1 flex justify-between sm:hidden">
-            <button
-              onClick={() => handlePageChange(pagination.page - 1)}
-              disabled={pagination.page === 1}
-              className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              Previous
-            </button>
-            <button
-              onClick={() => handlePageChange(pagination.page + 1)}
-              disabled={pagination.page === pagination.totalPages}
-              className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-            >
-              Next
-            </button>
-          </div>
-          <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm text-gray-700">
-                Showing{' '}
-                <span className="font-medium">
-                  {(pagination.page - 1) * pagination.limit + 1}
-                </span>{' '}
-                to{' '}
-                <span className="font-medium">
-                  {Math.min(pagination.page * pagination.limit, pagination.total)}
-                </span>{' '}
-                of{' '}
-                <span className="font-medium">{pagination.total}</span> results
-              </p>
-            </div>
-            <div>
-              <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="px-6 py-4 border-t border-gray-200 bg-gradient-to-r from-blue-50 to-emerald-50">
+            <div className="flex justify-between items-center">
+              <div className="text-sm text-gray-600">
+                Showing {((pagination.page - 1) * pagination.limit) + 1} to{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of{' '}
+                {pagination.total} results
+              </div>
+              
+              <div className="flex items-center space-x-3">
                 <button
-                  onClick={() => handlePageChange(pagination.page - 1)}
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                   disabled={pagination.page === 1}
-                  className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    pagination.page === 1
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 shadow-sm'
+                  }`}
                 >
                   Previous
                 </button>
                 
-                {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                  const pageNum = i + 1;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                        pagination.page === pageNum
-                          ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                          : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                      }`}
-                    >
-                      {pageNum}
-                    </button>
-                  );
-                })}
+                <div className="flex items-center space-x-2">
+                  <span className="px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-semibold">
+                    {pagination.page}
+                  </span>
+                  <span className="text-gray-500">of</span>
+                  <span className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-semibold">
+                    {pagination.totalPages}
+                  </span>
+                </div>
                 
                 <button
-                  onClick={() => handlePageChange(pagination.page + 1)}
+                  onClick={() => setPagination(prev => ({ ...prev, page: prev.page + 1 }))}
                   disabled={pagination.page === pagination.totalPages}
-                  className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                  className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    pagination.page === pagination.totalPages
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-white text-blue-600 hover:bg-blue-600 hover:text-white border border-blue-200 hover:border-blue-600 shadow-sm'
+                  }`}
                 >
                   Next
                 </button>
-              </nav>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

@@ -1,7 +1,9 @@
+// src/services/api.js
 import axios from "axios";
+import config from "../config/config.js";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: config.API_URL,
 });
 
 // Tambahkan token sebelum request
@@ -29,7 +31,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const res = await axios.post("http://localhost:5000/api/auth/refresh", {
+        const res = await axios.post(`${config.API_URL}/auth/refresh`, {
           refreshToken,
         });
 
