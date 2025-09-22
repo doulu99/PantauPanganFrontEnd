@@ -1,72 +1,55 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../services/api';
-import toast from 'react-hot-toast';
+import React, { createContext, useContext, useState, useEffect } from "react";
+import axios from "axios";
 
-const AuthContext = createContext(null);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
-  }
-  return context;
-};
+const API_BASE = "http://localhost:5000"; // ganti sesuai alamat backend
+const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    const saved = localStorage.getItem("user");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [token, setToken] = useState(() => localStorage.getItem("token"));
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    const userData = localStorage.getItem('user');
-    
-    if (token && userData) {
-      setUser(JSON.parse(userData));
-      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-    }
-    setLoading(false);
-  }, []);
+    if (user) localStorage.setItem("user", JSON.stringify(user));
+    else localStorage.removeItem("user");
 
-  const login = async (credentials) => {
-    try {
-      const response = await api.post('/auth/login', credentials);
-      const { user, accessToken } = response.data.data;
-      
-      localStorage.setItem('token', accessToken);
-      localStorage.setItem('user', JSON.stringify(user));
-      api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
-      
-      setUser(user);
-      toast.success('Login successful!');
-      return { success: true };
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
-      return { success: false, error: error.response?.data?.message };
-    }
+    if (token) localStorage.setItem("token", token);
+    else localStorage.removeItem("token");
+  }, [user, token]);
+
+  const login = (data) => {
+    setUser(data.user);
+    setToken(data.accessToken);
+    localStorage.setItem("refreshToken", data.refreshToken);
   };
 
-  const register = async (userData) => {
+  // ✅ Tambahkan fungsi register
+  const register = async (formData) => {
     try {
-      const response = await api.post('/auth/register', userData);
-      toast.success('Registration successful! Please login.');
-      return { success: true };
-    } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
-      return { success: false, error: error.response?.data?.message };
+      const res = await axios.post(`${API_BASE}/api/auth/register`, formData);
+      return { success: true, data: res.data };
+    } catch (err) {
+      console.error("Register error:", err.response?.data || err.message);
+      return { success: false, error: err.response?.data || "Registration failed" };
     }
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    delete api.defaults.headers.common['Authorization'];
     setUser(null);
-    toast.success('Logged out successfully');
+    setToken(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("token");
+    localStorage.removeItem("refreshToken");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, register }}>
       {children}
     </AuthContext.Provider>
   );
 };
+
+export const useAuth = () => useContext(AuthContext);

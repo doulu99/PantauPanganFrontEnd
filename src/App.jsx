@@ -1,71 +1,81 @@
-// src/App.jsx - Fixed version (no double router)
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'react-hot-toast';
-import { AuthProvider } from './context/AuthContext';
-import Layout from './components/Layout';
-import ProtectedRoute from './components/ProtectedRoute';
+// src/App.jsx
+import React from "react";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { AuthProvider } from "./context/AuthContext";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Navbar from "./components/Navbar";
 
-// Existing Pages
-import HomePage from './pages/HomePage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import DashboardPage from './pages/DashboardPage';
-import PricesPage from './pages/PricesPage';
-import ProfilePage from './pages/ProfilePage';
+// Pages
+import PublicHomePage from "./pages/PublicHomePage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import Dashboard from "./pages/Dashboard";
+import MarketPricesPage from "./pages/MarketPricesPage";
+import OverridesPage from "./pages/OverridesPage";
+import PricesPage from "./pages/PricesPage";
+import RegionsPage from "./pages/RegionsPage";
 
-// Enhanced Market Price Page
-import EnhancedMarketPriceInputPage from './pages/EnhancedMarketPriceInputPage';
-
-function App() {
+const App = () => {
   return (
     <AuthProvider>
-      <Toaster 
-        position="top-right" 
-        toastOptions={{
-          duration: 4000,
-          style: {
-            background: '#363636',
-            color: '#fff',
-          },
-          success: {
-            duration: 3000,
-            iconTheme: {
-              primary: '#4ade80',
-              secondary: '#fff',
-            },
-          },
-          error: {
-            duration: 5000,
-            iconTheme: {
-              primary: '#ef4444',
-              secondary: '#fff',
-            },
-          },
-        }}
-      />
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<HomePage />} />
-          <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
-          
-          {/* Protected Routes */}
-          <Route element={<ProtectedRoute />}>
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="prices" element={<PricesPage />} />
-            <Route path="profile" element={<ProfilePage />} />
-            
-            {/* Enhanced Market Price Route */}
-            <Route path="market-prices" element={<EnhancedMarketPriceInputPage />} />
-          </Route>
-        </Route>
-        
-        {/* Redirect unknown routes */}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      <BrowserRouter>
+        <div className="min-h-screen bg-gray-50">
+          <Navbar />
+          <main>
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<PublicHomePage />} />
+              <Route path="/home" element={<PublicHomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              
+              {/* Protected Routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/market-prices"
+                element={
+                  <ProtectedRoute>
+                    <MarketPricesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/overrides"
+                element={
+                  <ProtectedRoute>
+                    <OverridesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/prices"
+                element={
+                  <ProtectedRoute>
+                    <PricesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/regions"
+                element={
+                  <ProtectedRoute>
+                    <RegionsPage />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </main>
+        </div>
+      </BrowserRouter>
     </AuthProvider>
   );
-}
+};
 
 export default App;
