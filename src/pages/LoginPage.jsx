@@ -3,14 +3,14 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Eye, EyeOff, Mail, Lock, LogIn, ArrowLeft, 
-  Shield, Activity, CheckCircle, AlertCircle 
+  Shield, Activity, CheckCircle, AlertCircle, User 
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import config from "../config/config.js";
 
 const LoginPage = () => {
   const [formData, setFormData] = useState({
-    email: "",
+    identifier: "", // Changed from email to identifier to support both username and email
     password: "",
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -32,12 +32,25 @@ const LoginPage = () => {
     setError("");
 
     try {
+      // Prepare login data based on input type
+      const loginData = {
+        password: formData.password
+      };
+
+      // Add appropriate field based on input type
+      const inputType = getInputType(formData.identifier);
+      if (inputType === 'email') {
+        loginData.email = formData.identifier;
+      } else if (inputType === 'username') {
+        loginData.username = formData.identifier;
+      }
+
       const response = await fetch(`${config.API_URL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(loginData),
       });
 
       const data = await response.json();
@@ -60,7 +73,44 @@ const LoginPage = () => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   };
 
-  const canSubmit = formData.email && formData.password && isValidEmail(formData.email) && !loading;
+  const isValidUsername = (username) => {
+    // Username should be at least 3 characters and contain only alphanumeric characters and underscores
+    return /^[a-zA-Z0-9_]{3,}$/.test(username);
+  };
+
+  const getInputType = (identifier) => {
+    if (!identifier) return 'neither';
+    if (isValidEmail(identifier)) return 'email';
+    if (isValidUsername(identifier)) return 'username';
+    return 'invalid';
+  };
+
+  const inputType = getInputType(formData.identifier);
+  const canSubmit = formData.identifier && formData.password && (inputType === 'email' || inputType === 'username') && !loading;
+
+  const getInputIcon = () => {
+    if (inputType === 'email') return <Mail className="h-5 w-5 text-gray-400" />;
+    if (inputType === 'username') return <User className="h-5 w-5 text-gray-400" />;
+    return <Mail className="h-5 w-5 text-gray-400" />;
+  };
+
+  const getInputBorderColor = () => {
+    if (!formData.identifier) return 'border-gray-200 focus:border-blue-500 focus:ring-blue-200';
+    if (inputType === 'invalid') return 'border-red-300 focus:border-red-500 focus:ring-red-200';
+    return 'border-gray-200 focus:border-blue-500 focus:ring-blue-200';
+  };
+
+  const getValidationMessage = () => {
+    if (!formData.identifier) return null;
+    if (inputType === 'invalid') {
+      return (
+        <p className="mt-2 text-sm text-red-600">
+          Please enter a valid email address or username (min. 3 characters, alphanumeric + underscore only)
+        </p>
+      );
+    }
+    return null;
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-emerald-50 flex items-center justify-center p-4">
@@ -149,36 +199,35 @@ const LoginPage = () => {
 
               {/* Login Form */}
               <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Email Field */}
+                {/* Email/Username Field */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Email Address
+                    Email Address or Username
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <Mail className="h-5 w-5 text-gray-400" />
+                      {getInputIcon()}
                     </div>
                     <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
+                      type="text"
+                      name="identifier"
+                      value={formData.identifier}
                       onChange={handleChange}
-                      className={`w-full pl-12 pr-4 py-4 text-gray-800 bg-white border-2 rounded-2xl focus:outline-none transition-all duration-300 ${
-                        formData.email && !isValidEmail(formData.email)
-                          ? 'border-red-300 focus:border-red-500 focus:ring-red-200'
-                          : 'border-gray-200 focus:border-blue-500 focus:ring-blue-200'
-                      }`}
-                      placeholder="admin@pantaupangan.id"
+                      className={`w-full pl-12 pr-4 py-4 text-gray-800 bg-white border-2 rounded-2xl focus:outline-none transition-all duration-300 ${getInputBorderColor()}`}
+                      placeholder="admin@pantaupangan.id or admin_user"
                       required
                     />
-                    {formData.email && isValidEmail(formData.email) && (
+                    {formData.identifier && (inputType === 'email' || inputType === 'username') && (
                       <div className="absolute inset-y-0 right-0 pr-4 flex items-center">
                         <CheckCircle className="h-5 w-5 text-green-500" />
                       </div>
                     )}
                   </div>
-                  {formData.email && !isValidEmail(formData.email) && (
-                    <p className="mt-2 text-sm text-red-600">Please enter a valid email address</p>
+                  {getValidationMessage()}
+                  {formData.identifier && inputType !== 'invalid' && (
+                    <p className="mt-1 text-xs text-gray-500">
+                      {inputType === 'email' ? 'Detected as email' : 'Detected as username'}
+                    </p>
                   )}
                 </div>
 
