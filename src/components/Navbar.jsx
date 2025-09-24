@@ -1,3 +1,6 @@
+// ==========================================
+// 2. src/components/Navbar.jsx - Updated tanpa "Kelola Harga" + tambah Sembako
+// ==========================================
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -10,16 +13,29 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   const publicNavItems = [
-    { path: "/", label: "Beranda", icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" },
+    { 
+      path: "/", 
+      label: "Beranda", 
+      icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" 
+    },
+    { 
+      path: "/sembako", 
+      label: "Data Sembako", 
+      icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M9 21V9l-5-5.5M15 21V9l5-5.5" 
+    },
   ];
 
   const adminNavItems = [
     {
-      path: "/market-prices",
-      label: "Kelola Harga",
-      icon: "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+      path: "/admin/sembako",
+      label: "Kelola Sembako",
+      icon: "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z",
     },
-    
+    {
+      path: "/dashboard",
+      label: "Dashboard",
+      icon: "M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z",
+    },
   ];
 
   const handleLogout = () => {
@@ -32,7 +48,7 @@ const Navbar = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           
-          {/* ✅ Logo (Desktop + Mobile) */}
+          {/* Logo (Desktop + Mobile) */}
           <Link to="/" className="flex items-center space-x-3">
             <img
               src="/assets/logo3.png"
@@ -40,11 +56,11 @@ const Navbar = () => {
               className="h-12 w-auto object-contain hover:scale-105 transition-transform duration-200"
             />
             <span className="hidden sm:block text-lg font-bold text-gray-800">
-              
+              Pantau Pangan
             </span>
           </Link>
 
-          {/* ✅ Desktop Navigation */}
+          {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
             {publicNavItems.map((item) => (
               <Link
@@ -70,7 +86,7 @@ const Navbar = () => {
                   to={item.path}
                   className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                     isActive(item.path)
-                      ? "bg-blue-100 text-blue-700 shadow-sm"
+                      ? "bg-green-100 text-green-700 shadow-sm"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   }`}
                 >
@@ -82,7 +98,7 @@ const Navbar = () => {
               ))}
           </div>
 
-          {/* ✅ User Menu (Desktop) */}
+          {/* User Menu (Desktop) */}
           <div className="hidden md:flex items-center space-x-4">
             {user ? (
               <div className="flex items-center space-x-3">
@@ -120,7 +136,7 @@ const Navbar = () => {
             )}
           </div>
 
-          {/* ✅ Mobile Menu Button */}
+          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <button
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -137,14 +153,14 @@ const Navbar = () => {
           </div>
         </div>
 
-        {/* ✅ Mobile Navigation */}
+        {/* Mobile Navigation */}
         {isMobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 py-4 space-y-3">
             
             {/* Logo muncul di atas menu mobile */}
             <div className="flex items-center space-x-2 px-4 pb-3 border-b border-gray-100">
               <img src="/assets/logo3.png" alt="Logo" className="h-10 w-auto object-contain" />
-              <span className="font-bold text-gray-800">Food Price Monitor</span>
+              <span className="font-bold text-gray-800">Pantau Pangan</span>
             </div>
 
             {/* Public Nav */}
@@ -175,7 +191,7 @@ const Navbar = () => {
                   onClick={() => setIsMobileMenuOpen(false)}
                   className={`flex items-center space-x-3 px-4 py-2 rounded-lg text-sm font-medium ${
                     isActive(item.path)
-                      ? "bg-blue-100 text-blue-700"
+                      ? "bg-green-100 text-green-700"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                   }`}
                 >

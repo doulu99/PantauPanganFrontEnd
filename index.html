@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image" href="assets/logo2.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Meta tags untuk fix CORS images -->
+  <meta http-equiv="Content-Security-Policy" content="img-src 'self' https: data:;">
+  <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  <!-- Preconnect ke BPN domain untuk speed -->
+  <link rel="preconnect" href="https://panelharga.badanpangan.go.id">
+  <link rel="dns-prefetch" href="//panelharga.badanpangan.go.id">
     <title>Pantau Pangan - Website Pantau Pangan Nasional</title>
   </head>
   <body>
