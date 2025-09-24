@@ -1,8 +1,12 @@
 // ==========================================
-// 5. src/pages/SembakoPage.jsx
+// src/pages/SembakoPage.jsx - Menggunakan Assets Lokal (LENGKAP)
 // ==========================================
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, RefreshCw, Download, Plus, MapPin, Calendar } from 'lucide-react';
+import { 
+  Search, Filter, RefreshCw, Download, MapPin, Calendar,
+  TrendingUp, BarChart3, AlertCircle, Package, Grid, List,
+  ChevronDown, Globe, Activity, ArrowRight
+} from 'lucide-react';
 import { sembakoApi } from '../services/sembakoApi';
 import SembakoCard from '../components/SembakoCard';
 import SembakoStats from '../components/SembakoStats';
@@ -23,7 +27,126 @@ const SembakoPage = () => {
   const [pagination, setPagination] = useState({});
   const [provinces, setProvinces] = useState([]);
   const [showFilters, setShowFilters] = useState(false);
-  const [viewMode, setViewMode] = useState('cards'); // 'cards' or 'stats'
+  const [viewMode, setViewMode] = useState('cards');
+  const [stats, setStats] = useState(null);
+  const [imageErrors, setImageErrors] = useState(new Set());
+
+  // Data komoditas dengan gambar lokal
+  const commoditiesWithImages = {
+    harga_beras: { 
+      name: 'Beras', 
+      icon: '🌾', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/beras.png',
+      gradient: 'from-yellow-400 to-amber-500'
+    },
+    harga_gula: { 
+      name: 'Gula', 
+      icon: '🍯', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/gula.png',
+      gradient: 'from-amber-400 to-orange-500'
+    },
+    harga_minyak: { 
+      name: 'Minyak', 
+      icon: '🛢️', 
+      unit: '/liter',
+      image: '/assets/images/komoditas/minyak.png',
+      gradient: 'from-orange-400 to-red-500'
+    },
+    harga_daging: { 
+      name: 'Daging Sapi', 
+      icon: '🥩', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/daging-sapi.png',
+      gradient: 'from-red-400 to-pink-500'
+    },
+    harga_ayam: { 
+      name: 'Ayam', 
+      icon: '🐔', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/daging-ayam.png',
+      gradient: 'from-yellow-400 to-yellow-500'
+    },
+    harga_telur: { 
+      name: 'Telur', 
+      icon: '🥚', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/telur.png',
+      gradient: 'from-yellow-300 to-amber-400'
+    },
+    harga_bawang_merah: { 
+      name: 'Bawang Merah', 
+      icon: '🧅', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/bawang-merah.png',
+      gradient: 'from-red-400 to-red-600'
+    },
+    harga_bawang_putih: { 
+      name: 'Bawang Putih', 
+      icon: '🧄', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/bawang-putih.png',
+      gradient: 'from-gray-300 to-gray-500'
+    },
+    harga_gas: { 
+      name: 'Gas LPG', 
+      icon: '🫗', 
+      unit: '/tabung',
+      image: '/assets/images/komoditas/gas-lpg.png',
+      gradient: 'from-blue-400 to-blue-600'
+    },
+    harga_garam: { 
+      name: 'Garam', 
+      icon: '🧂', 
+      unit: '/kg',
+      image: '/assets/images/komoditas/garam.png',
+      gradient: 'from-gray-200 to-gray-400'
+    },
+    harga_susu: { 
+      name: 'Susu', 
+      icon: '🥛', 
+      unit: '/liter',
+      image: '/assets/images/komoditas/susu.png',
+      gradient: 'from-blue-300 to-blue-500'
+    },
+  };
+
+  // Handle image error
+  const handleImageError = (commodityKey) => {
+    setImageErrors(prev => new Set([...prev, commodityKey]));
+  };
+
+  // Komponen untuk menampilkan gambar komoditas
+  const CommodityImage = ({ commodityKey, commodity, className = "w-6 h-6" }) => {
+    const hasError = imageErrors.has(commodityKey);
+    
+    if (hasError) {
+      return (
+        <div className={`${className} rounded-lg bg-gradient-to-br ${commodity.gradient} flex items-center justify-center shadow-sm`}>
+          <span className="text-sm">{commodity.icon}</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className={`${className} rounded-lg bg-white flex items-center justify-center shadow-sm overflow-hidden p-1`}>
+        <img
+          src={commodity.image}
+          alt={commodity.name}
+          className="w-full h-full object-contain"
+          onError={() => handleImageError(commodityKey)}
+          onLoad={() => {
+            setImageErrors(prev => {
+              const newSet = new Set(prev);
+              newSet.delete(commodityKey);
+              return newSet;
+            });
+          }}
+        />
+      </div>
+    );
+  };
 
   // Fetch data utama
   const fetchData = async () => {
@@ -41,6 +164,16 @@ const SembakoPage = () => {
     }
   };
 
+  // Fetch statistics
+  const fetchStats = async () => {
+    try {
+      const response = await sembakoApi.getPublicStatistics();
+      setStats(response.data.data);
+    } catch (err) {
+      console.error('Error fetching stats:', err);
+    }
+  };
+
   // Fetch provinces untuk filter
   const fetchProvinces = async () => {
     try {
@@ -55,14 +188,26 @@ const SembakoPage = () => {
   useEffect(() => {
     fetchData();
     fetchProvinces();
+    fetchStats();
   }, [filters.province_name]);
+
+  // Format harga
+  const formatPrice = (price) => {
+    if (!price || isNaN(price)) return 'N/A';
+    return new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(price);
+  };
 
   // Handle filter changes
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
       [key]: value,
-      page: 1 // Reset to first page when filters change
+      page: 1
     }));
   };
 
@@ -89,250 +234,314 @@ const SembakoPage = () => {
       a.download = `sembako-export-${new Date().toISOString().split('T')[0]}.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Export error:', error);
-      alert('Gagal export data');
+    } catch (err) {
+      console.error('Export error:', err);
+      setError('Gagal mengekspor data');
     }
   };
 
-  // Filter data locally based on search
-  const filteredData = data.filter(item => {
-    const matchMarket = !filters.market_name || 
-      item.market_name.toLowerCase().includes(filters.market_name.toLowerCase());
-    
-    const matchDate = !filters.start_date || !filters.end_date ||
-      (new Date(item.survey_date) >= new Date(filters.start_date) &&
-       new Date(item.survey_date) <= new Date(filters.end_date));
-    
-    return matchMarket && matchDate;
-  });
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">
-                Data Sembako - 9 Bahan Pokok
-              </h1>
-              <p className="text-gray-600 mt-1">
-                Pantau harga bahan pokok pangan di seluruh Indonesia
-              </p>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-emerald-50">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-600 to-emerald-600">
+        <div className="absolute inset-0">
+          <div className="absolute top-10 right-10 w-64 h-64 bg-white/10 rounded-full blur-2xl"></div>
+          <div className="absolute bottom-10 left-10 w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="relative container mx-auto px-4 py-16">
+          <div className="text-center text-white">
+            <h1 className="text-4xl md:text-6xl font-bold mb-4">
+              Data Sembako Indonesia
+            </h1>
+            <p className="text-xl md:text-2xl text-blue-100 mb-8 max-w-3xl mx-auto">
+              Pantau harga 9 bahan pokok pangan dari seluruh Indonesia secara real-time
+            </p>
             
-            <div className="flex gap-2">
-              <button
-                onClick={() => setViewMode(viewMode === 'cards' ? 'stats' : 'cards')}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
-              >
-                {viewMode === 'cards' ? 'Lihat Statistik' : 'Lihat Data'}
-              </button>
-              
-              <Link
-                to="/admin/sembako"
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Kelola Data
-              </Link>
-            </div>
+            {/* Quick Stats */}
+            {stats && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                  <div className="text-2xl font-bold">{stats.summary?.total_provinces || 34}</div>
+                  <div className="text-sm text-blue-100">Provinsi</div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                  <div className="text-2xl font-bold">{stats.summary?.total_records?.toLocaleString('id-ID') || '0'}</div>
+                  <div className="text-sm text-blue-100">Data Harga</div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                  <div className="text-2xl font-bold">11</div>
+                  <div className="text-sm text-blue-100">Komoditas</div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4">
+                  <div className="text-2xl font-bold">Real-time</div>
+                  <div className="text-sm text-blue-100">Update</div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* View Mode: Statistics */}
-        {viewMode === 'stats' && <SembakoStats />}
-
-        {/* View Mode: Cards */}
-        {viewMode === 'cards' && (
-          <>
-            {/* Filters */}
-            <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
-                <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                  <Filter className="w-5 h-5 mr-2" />
-                  Filter Data
-                </h2>
-                
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
-                  >
-                    {showFilters ? 'Sembunyikan' : 'Tampilkan'} Filter
-                  </button>
-                  
-                  <button
-                    onClick={fetchData}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Refresh
-                  </button>
-                  
-                  <button
-                    onClick={handleExport}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Export
-                  </button>
-                </div>
-              </div>
-
-              {showFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <MapPin className="w-4 h-4 inline mr-1" />
-                      Provinsi
-                    </label>
-                    <select
-                      value={filters.province_name}
-                      onChange={(e) => handleFilterChange('province_name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Semua Provinsi</option>
-                      {provinces.map(province => (
-                        <option key={province} value={province}>
-                          {province}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Search className="w-4 h-4 inline mr-1" />
-                      Nama Pasar
-                    </label>
-                    <input
-                      type="text"
-                      value={filters.market_name}
-                      onChange={(e) => handleFilterChange('market_name', e.target.value)}
-                      placeholder="Cari nama pasar..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Calendar className="w-4 h-4 inline mr-1" />
-                      Tanggal Mulai
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.start_date}
-                      onChange={(e) => handleFilterChange('start_date', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      <Calendar className="w-4 h-4 inline mr-1" />
-                      Tanggal Akhir
-                    </label>
-                    <input
-                      type="date"
-                      value={filters.end_date}
-                      onChange={(e) => handleFilterChange('end_date', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Active filters display */}
-              {(filters.province_name || filters.market_name || filters.start_date || filters.end_date) && (
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <span className="text-sm text-gray-600">Filter aktif:</span>
-                  {filters.province_name && (
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-                      Provinsi: {filters.province_name}
-                    </span>
-                  )}
-                  {filters.market_name && (
-                    <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">
-                      Pasar: {filters.market_name}
-                    </span>
-                  )}
-                  {filters.start_date && (
-                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                      Dari: {filters.start_date}
-                    </span>
-                  )}
-                  {filters.end_date && (
-                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-sm">
-                      Sampai: {filters.end_date}
-                    </span>
-                  )}
-                  <button
-                    onClick={clearFilters}
-                    className="px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm hover:bg-red-200"
-                  >
-                    ✕ Clear All
-                  </button>
-                </div>
-              )}
+      {/* Average Prices Section dengan Gambar */}
+      {stats?.average_prices && (
+        <div className="container mx-auto px-4 py-16 -mt-8 relative z-10">
+          <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">Harga Rata-rata Nasional</h2>
+              <p className="text-gray-600">Update terbaru dari seluruh Indonesia</p>
             </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-6">
+              {Object.entries(stats.average_prices).map(([key, price]) => {
+                const commodity = commoditiesWithImages[key];
+                if (!commodity) return null;
 
-            {/* Data Display */}
-            {loading ? (
-              <div className="flex justify-center items-center h-64">
-                <RefreshCw className="w-8 h-8 animate-spin text-blue-600" />
-                <span className="ml-2 text-gray-600">Memuat data...</span>
+                return (
+                  <div key={key} className="group bg-gradient-to-br from-white to-gray-50 rounded-xl p-4 shadow-md hover:shadow-lg transition-all duration-300 hover:scale-105 border border-gray-100">
+                    <div className="text-center">
+                      <div className="mb-3 flex justify-center">
+                        <CommodityImage 
+                          commodityKey={key} 
+                          commodity={commodity} 
+                          className="w-12 h-12" 
+                        />
+                      </div>
+                      <h4 className="font-bold text-gray-800 text-sm mb-1 group-hover:text-blue-600 transition-colors">
+                        {commodity.name}
+                      </h4>
+                      <p className="text-xs text-gray-500 mb-2">{commodity.unit}</p>
+                      <p className="text-lg font-bold bg-gradient-to-r from-blue-600 to-emerald-600 bg-clip-text text-transparent">
+                        {formatPrice(parseFloat(price))}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        {/* Controls Bar */}
+        <div className="bg-white rounded-xl shadow-lg mb-8">
+          {/* Top Controls */}
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex flex-col lg:flex-row gap-4">
+              {/* Search */}
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="w-5 h-5 text-gray-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Cari pasar atau lokasi..."
+                    value={filters.market_name}
+                    onChange={(e) => handleFilterChange('market_name', e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-            ) : error ? (
-              <div className="text-center py-16">
-                <div className="text-red-600 mb-4">{error}</div>
+
+              {/* Controls */}
+              <div className="flex gap-3 flex-wrap">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-6 py-3 rounded-lg flex items-center font-medium transition-colors ${
+                    showFilters ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                  }`}
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filter
+                  <ChevronDown className={`w-4 h-4 ml-2 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                </button>
+
+                <button
+                  onClick={() => setViewMode(viewMode === 'cards' ? 'table' : 'cards')}
+                  className="px-6 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center font-medium"
+                >
+                  {viewMode === 'cards' ? <List className="w-4 h-4 mr-2" /> : <Grid className="w-4 h-4 mr-2" />}
+                  {viewMode === 'cards' ? 'List View' : 'Card View'}
+                </button>
+
                 <button
                   onClick={fetchData}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center font-medium"
                 >
-                  Coba Lagi
+                  <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                  Refresh
+                </button>
+
+                <button
+                  onClick={handleExport}
+                  className="px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 flex items-center font-medium"
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Export CSV
                 </button>
               </div>
-            ) : filteredData.length === 0 ? (
-              <div className="text-center py-16 bg-white rounded-xl shadow-lg">
-                <div className="text-gray-400 mb-4">
-                  <Search className="w-16 h-16 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium">Tidak ada data</h3>
-                  <p>Tidak ditemukan data dengan filter yang dipilih</p>
-                </div>
-                {(filters.province_name || filters.market_name || filters.start_date || filters.end_date) && (
-                  <button
-                    onClick={clearFilters}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    Reset Filter
-                  </button>
-                )}
+            </div>
+          </div>
+
+          {/* Advanced Filters */}
+          {showFilters && (
+            <div className="p-6 bg-gray-50">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <select
+                  value={filters.province_name}
+                  onChange={(e) => handleFilterChange('province_name', e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                >
+                  <option value="">Semua Provinsi</option>
+                  {provinces.map(province => (
+                    <option key={province} value={province}>{province}</option>
+                  ))}
+                </select>
+
+                <input
+                  type="date"
+                  value={filters.start_date}
+                  onChange={(e) => handleFilterChange('start_date', e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+
+                <input
+                  type="date"
+                  value={filters.end_date}
+                  onChange={(e) => handleFilterChange('end_date', e.target.value)}
+                  className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                />
+
+                <button
+                  onClick={clearFilters}
+                  className="px-4 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium"
+                >
+                  Reset Filter
+                </button>
               </div>
-            ) : (
-              <>
-                {/* Results Info */}
-                <div className="mb-6 flex justify-between items-center">
-                  <p className="text-gray-600">
-                    Menampilkan {filteredData.length} dari {data.length} data
-                  </p>
-                  
-                  <div className="text-sm text-gray-500">
-                    Update terakhir: {new Date().toLocaleString('id-ID')}
+            </div>
+          )}
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 flex items-center">
+            <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+            <span className="text-red-800">{error}</span>
+          </div>
+        )}
+
+        {/* Data Display */}
+        {loading ? (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <RefreshCw className="w-12 h-12 animate-spin text-blue-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-800">Memuat data sembako...</h3>
+            <p className="text-gray-600">Mengambil data terbaru dari server</p>
+          </div>
+        ) : data.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-lg p-12 text-center">
+            <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-800">Tidak ada data</h3>
+            <p className="text-gray-600 mb-6">Tidak ditemukan data sembako sesuai filter yang dipilih</p>
+            <button
+              onClick={clearFilters}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Reset Filter
+            </button>
+          </div>
+        ) : (
+          <>
+            {/* Cards Display */}
+            <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+              <div className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-gray-800">
+                    Data Harga Sembako ({data.length} hasil)
+                  </h2>
+                  <div className="text-sm text-gray-600 flex items-center">
+                    <Calendar className="w-4 h-4 mr-1" />
+                    Diperbarui: {new Date().toLocaleDateString('id-ID')}
                   </div>
                 </div>
-
-                {/* Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {filteredData.map((item) => (
-                    <SembakoCard key={item.id} data={item} />
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {data.map((item) => (
+                    <SembakoCard key={item.id} data={item} showAllPrices={true} />
                   ))}
                 </div>
-              </>
+              </div>
+            </div>
+
+            {/* Pagination Info (jika ada) */}
+            {pagination && pagination.totalPages > 1 && (
+              <div className="bg-white rounded-xl shadow-lg p-4 mt-6">
+                <div className="text-center text-gray-600">
+                  Menampilkan {data.length} dari {pagination.total} data sembako
+                  {pagination.totalPages > 1 && (
+                    <span className="ml-2">
+                      (Halaman {pagination.page} dari {pagination.totalPages})
+                    </span>
+                  )}
+                </div>
+              </div>
             )}
+
+            {/* Back to Top dan Navigation */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mt-8">
+              <Link 
+                to="/" 
+                className="inline-flex items-center bg-gradient-to-r from-blue-600 to-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-emerald-700 transition-all duration-300 shadow-lg hover:shadow-xl"
+              >
+                <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                Kembali ke Beranda
+              </Link>
+              
+              <button
+                onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                className="inline-flex items-center bg-white text-gray-700 border border-gray-300 px-6 py-3 rounded-lg font-medium hover:bg-gray-50 transition-all duration-300"
+              >
+                <ArrowRight className="w-4 h-4 mr-2 rotate-90 transform scale-y-[-1]" />
+                Ke Atas
+              </button>
+            </div>
+
+            {/* Additional Info */}
+            <div className="bg-gradient-to-r from-blue-50 to-emerald-50 rounded-xl p-6 mt-8">
+              <div className="text-center">
+                <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  Informasi Data Sembako
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Data harga sembako ini dikumpulkan dari berbagai sumber terpercaya di seluruh Indonesia 
+                  dan diperbarui secara berkala untuk memastikan keakuratan informasi.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-lg p-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <Globe className="w-8 h-8 text-blue-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-800">Cakupan Nasional</h4>
+                    <p className="text-sm text-gray-600">Data dari 34 provinsi di Indonesia</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <BarChart3 className="w-8 h-8 text-emerald-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-800">Update Berkala</h4>
+                    <p className="text-sm text-gray-600">Pembaruan data secara real-time</p>
+                  </div>
+                  <div className="bg-white rounded-lg p-4">
+                    <div className="flex items-center justify-center mb-2">
+                      <Package className="w-8 h-8 text-purple-600" />
+                    </div>
+                    <h4 className="font-semibold text-gray-800">9 Komoditas Utama</h4>
+                    <p className="text-sm text-gray-600">Sembako bahan pokok pangan</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </>
         )}
       </div>
